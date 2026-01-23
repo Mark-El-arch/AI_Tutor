@@ -1,118 +1,89 @@
-from typing import List, Dict
-import json
+# tutor.py
+import ast
 
-class AITutor:
-    def __init__(self, llm_client):
-        self.llm = llm_client
+class Tutor:
+    def __init__(self, llm):
+        self.llm = llm
 
-    def section_text(self, raw_text: str) -> list:
+    def _generate(self, prompt: str) -> str:
+        if hasattr(self.llm, "generate"):
+            return self.llm.generate(prompt)
+        raise RuntimeError("LLM does not have a generate() method")
+
+    def explain_section(self, title: str, content: str):
+        prompt = f"Explain this section clearly and simply:\nTitle: {title}\nContent: {content}"
+        explanation = self._generate(prompt).strip()
+        print(f"--- Section Explanation ---\n{explanation}")
+
+        # Ask user if they have questions
+        user_input = input("Do you have any questions about this section? (Y/N): >? ").strip().lower()
+        if user_input == "y":
+            question = input("Ask your question: >? ").strip()
+            answer = self._generate(question)
+            print(f"--- Answer ---\n{answer}")
+            understood = input("Do you understand this answer? (Y/N): >? ").strip().lower()
+            if understood != "y":
+                print("You can ask again or move to the quiz.")
+
+    def generate_quiz(self, title: str, content: str) -> dict:
+        """
+        Generate a short quiz with 2-3 questions.
+        Returns a dictionary structured for interactive quizzes.
+        """
         prompt = f"""
-        You're an expect educator.
-        Split the following study material into clear learning sections.
-        Each section must have:
-        - A short title
-        - The associated content
-         Return the result as valid JSON, like:
-    [
-        {{"title": "Title 1", "content": "Content 1"}},
-        {{"title": "Title 2", "content": "Content 2"}}
-    ]
-
-        Text:
-        {raw_text}
-        
-        # Return the result as a structured list.
+        Generate a short quiz for this section:
+        Title: {title}
+        Content: {content}
+        Include 2-3 questions. Each question should be multiple choice or short answer.
+        Return a Python dict like this:
+        {{
+            'title': str,
+            'questions': [
+                {{
+                    'type': 'multiple_choice'|'short_answer',
+                    'question': str,
+                    'options': [str],
+                    'correct_answer': str,
+                    'expected_answer': str
+                }}
+            ]
+        }}
         """
 
-        response_text = self.llm.generate(prompt)
-        # return response
+        response = self._generate(prompt)
 
         try:
-            sections = json.loads(response_text)
-        except json.JSONDecodeError:
-            print("Warning: Could not parse JSON. Returning raw text as single section.")
-            sections = [{"title": "Section 1", "content": response_text}]
-        return sections
+            # Remove any markdown/code block formatting
+            response_clean = response.strip("```").strip()
+            quiz_dict = ast.literal_eval(response_clean)
+            return quiz_dict
+        except Exception as e:
+            print("Error parsing quiz from LLM:", e)
+            return {"title": title, "questions": []}
 
-    def explain_section(self, section_title: str, section_content: str) -> str:
-        prompt = f"""
-        You're a patient AI tutor.
-        
-        Teach the following section clearly:
-        - Explain step by step
-        - Use simple language
-        - Give intuitive examples
-        - Assume the student may be confused
-        
-        Section Title: {section_title}
-        Section Content: {section_content}
-        """
+    def take_quiz(self, quiz: dict):
+        if not quiz or not quiz.get("questions"):
+            print("No quiz questions available for this section.")
+            return
 
-        explanation = self.llm.generate(prompt)
-        return explanation
+        print("--- Section Quiz ---")
+        score = 0
+        total = len(quiz["questions"])
 
-    def answer_question(self,
-                        section_title: str,
-                        section_content: str,
-                        student_question: str) -> str:
+        for idx, q in enumerate(quiz["questions"], 1):
+            print(f"Question {idx}: {q['question']}")
+            if q['type'] == "multiple_choice" and q.get('options'):
+                for i, option in enumerate(q['options'], 1):
+                    print(f"{i}. {option}")
+                ans = input("Your answer (number): >? ").strip()
+                try:
+                    if q['options'][int(ans)-1].lower() == q['correct_answer'].lower():
+                        score += 1
+                except:
+                    pass
+            elif q['type'] == "short_answer":
+                ans = input("Your answer: >? ").strip()
+                if ans.lower() == q['correct_answer'].lower():
+                    score += 1
 
-        prompt = f"""
-        You're a supportive tutor.
-        
-        The student asked a question about the following section.
-        Explain patiently and clearly.
-        If the question shows confusion, re-explain differently.
-        
-        Section Title: {section_title}
-        Section Content: {section_content}
-        
-        Student Question: {student_question}
-        """
-
-        answer = self.llm.generate(prompt)
-        return answer
-
-    def generate_quiz(self, title, content):
-        """
-        Generate a structured quiz for a given section.
-
-        Returns:
-            dict: {
-                "quiz_title": str,
-                "questions": [
-                    {
-                        "type": "multiple_choice" or "short_answer",
-                        "question": str,
-                        "options": list[str],        # Only for multiple_choice
-                        "correct_answer": str,       # Only for multiple_choice
-                        "expected_answer": str       # Only for short_answer
-                    },
-                    ...
-                ]
-            }
-        """
-        # Example static quiz (replace with LLM call for dynamic quiz later)
-        quiz = {
-            "quiz_title": f"Quiz for {title}",
-            "questions": [
-                {
-                    "type": "multiple_choice",
-                    "question": "What type of learning model is a Support Vector Machine (SVM)?",
-                    "options": ["Unsupervised", "Supervised", "Reinforcement", "Generative"],
-                    "correct_answer": "Supervised"
-                },
-                {
-                    "type": "multiple_choice",
-                    "question": "Which tasks can SVM be used for?",
-                    "options": ["Classification only", "Regression only", "Both classification and regression",
-                                "Clustering"],
-                    "correct_answer": "Both classification and regression"
-                },
-                {
-                    "type": "short_answer",
-                    "question": "In one sentence, explain what SVM does.",
-                    "expected_answer": "SVM finds the best boundary to separate data classes."
-                }
-            ]
-        }
-        return quiz
+        print(f"Quiz completed! Your score: {score}/{total}")
