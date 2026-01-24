@@ -1,8 +1,9 @@
 # test_file.py
+
 from llm import OpenAIClient
 from tutor import Tutor
+from quiz_engine import run_quiz
 
-# Example sections
 sections = [
     {
         "title": "Support Vector Machines (SVM)",
@@ -14,14 +15,28 @@ sections = [
     }
 ]
 
-def teach_section(title, content):
-    tutor = Tutor(OpenAIClient())
+
+def teach_section(tutor, title, content):
+    print("\n--- Explanation ---")
     tutor.explain_section(title, content)
+
+    print("\n--- Quiz ---")
     quiz = tutor.generate_quiz(title, content)
     tutor.take_quiz(quiz)
 
+    print("\n--- Progress Snapshot ---")
+    print(tutor.get_progress_summary())
+
+
 if __name__ == "__main__":
+    tutor = Tutor(
+        llm=OpenAIClient(),
+        quiz_engine=run_quiz,
+        user_id="test_user"
+    )
+
     for section in sections:
-        print("="*30)
-        print(f"SECTION\n{'='*30}\n{section['title']}")
-        teach_section(section["title"], section["content"])
+        print("\n" + "=" * 40)
+        print(f"SECTION: {section['title']}")
+        print("=" * 40)
+        teach_section(tutor, section["title"], section["content"])
