@@ -1,13 +1,17 @@
-def run_quiz(quiz: dict) -> dict:
-    results = []
+# quiz_engine.py
 
-    for q in quiz['questions']:
-        print(q['question'])
+def run_quiz(quiz: dict) -> tuple[int, int]:
+    """
+    Runs a quiz interactively and returns (score, total).
+    """
+    score = 0
+    total = len(quiz["questions"])
+
+    for q in quiz["questions"]:
+        print(q["question"])
         user_answer = input("Your answer: ").strip()
-        is_correct = user_answer.lower() == q['correct_answer'].lower()
-        results.append({'question': q['question'],
-                        'user_answer': user_answer,
-                        'correct_answer': q['correct_answer'],
-                        'is_correct': is_correct})
 
-        return results
+        if user_answer.lower() == q["correct_answer"].lower():
+            score += 1
+
+    return score, total
