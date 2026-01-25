@@ -1,5 +1,4 @@
 # test_file.py
-
 from llm import OpenAIClient
 from tutor import Tutor
 from quiz_engine import run_quiz
@@ -15,19 +14,6 @@ sections = [
     }
 ]
 
-
-def teach_section(tutor, title, content):
-    print("\n--- Explanation ---")
-    tutor.explain_section(title, content)
-
-    print("\n--- Quiz ---")
-    quiz = tutor.generate_quiz(title, content)
-    tutor.take_quiz(quiz)
-
-    print("\n--- Progress Snapshot ---")
-    print(tutor.get_progress_summary())
-
-
 if __name__ == "__main__":
     tutor = Tutor(
         llm=OpenAIClient(),
@@ -35,8 +21,17 @@ if __name__ == "__main__":
         user_id="test_user"
     )
 
+    print("=== RESUMING SESSION ===")
+    print("Completed sections:", tutor.get_completed_sections())
+
     for section in sections:
         print("\n" + "=" * 40)
         print(f"SECTION: {section['title']}")
         print("=" * 40)
-        teach_section(tutor, section["title"], section["content"])
+        tutor.resume_or_explain_section(
+            section["title"],
+            section["content"]
+        )
+
+    print("\n=== FINAL PROGRESS ===")
+    print(tutor.get_progress_summary())
