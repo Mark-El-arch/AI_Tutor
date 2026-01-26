@@ -6,7 +6,7 @@ class Tutor:
     """
     Core tutor logic:
     - Explain sections
-    - Generate simple quizzes
+    - Generate LLM-powered quizzes
     - Run quizzes
     - Persist and resume progress
     """
@@ -46,31 +46,14 @@ class Tutor:
             return
 
         self.explain_section(title, content)
-        self.run_quiz_for_section(title)
+        self.run_quiz_for_section(title, content)
 
     # -------------------------
-    # Quiz logic
+    # Quiz logic (LLM-powered)
     # -------------------------
 
-    def _generate_quiz(self, section_title: str) -> dict:
-        """
-        Simple rule-based quiz generation (v0.4).
-        """
-        return {
-            "questions": [
-                {
-                    "question": f"What is the main idea of {section_title}?",
-                    "correct_answer": "definition"
-                },
-                {
-                    "question": f"Is {section_title} used in machine learning?",
-                    "correct_answer": "yes"
-                }
-            ]
-        }
-
-    def run_quiz_for_section(self, section_title: str):
-        quiz = self._generate_quiz(section_title)
+    def run_quiz_for_section(self, section_title: str, section_content: str):
+        quiz = self.llm.generate_quiz(section_title, section_content)
 
         score, total = self.quiz_engine(quiz)
 
