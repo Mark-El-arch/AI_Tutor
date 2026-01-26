@@ -14,15 +14,16 @@ def run_quiz(quiz: dict) -> tuple[int, int, list]:
         print(q["question"])
         user_answer = input("Your answer: ").strip()
 
-        normalized = user_answer.lower()
-        invalid = (
-            normalized in {"", "i forgot", "no idea", "idk"} or
-            len(normalized) < 2
-        )
+        # normalized = user_answer.lower()
+        ua = user_answer.lower()
+        ca = q["correct_answer"].lower()
+
+        invalid = ua in {"", "i forgot", "no idea", "idk"} or len(ua) < 2
 
         is_correct = (
             not invalid and
-            normalized == q["correct_answer"].lower()
+            (ua in ca or ca in ua)
+            # normalized == q["correct_answer"].lower()
         )
 
         if is_correct:
