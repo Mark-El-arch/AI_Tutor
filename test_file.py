@@ -11,7 +11,12 @@ sections = [
     {
         "title": "SVM Hyperplanes",
         "content": "They work by finding the optimal hyperplane that separates data points."
+    },
+    {
+    "title": "Kernel Trick",
+    "content": "The kernel trick allows SVMs to operate in higher-dimensional spaces."
     }
+
 ]
 
 if __name__ == "__main__":
