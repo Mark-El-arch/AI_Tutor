@@ -7,13 +7,15 @@ class Tutor:
     Core tutor logic:
     - Explain sections
     - Generate LLM-powered quizzes
-    - Run quizzes
+    - Run quizzes with feedback
     - Persist and resume progress
     """
 
+    MIN_PASS_RATIO = 0.7  # 70%
+
     def __init__(self, llm, quiz_engine, user_id="default"):
         self.llm = llm
-        self.quiz_engine = quiz_engine  # run_quiz function
+        self.quiz_engine = quiz_engine
         self.progress_manager = ProgressManager(user_id=user_id)
 
     # -------------------------
@@ -30,7 +32,7 @@ class Tutor:
     # Teaching
     # -------------------------
 
-    def explain_section(self, title: str, content: str) -> str:
+    def explain_section(self, title: str, content: str):
         prompt = (
             f"Explain the following topic clearly and simply:\n\n"
             f"Title: {title}\n"
@@ -38,7 +40,6 @@ class Tutor:
         )
         explanation = self.llm.generate(prompt)
         print(explanation)
-        return explanation
 
     def resume_or_explain_section(self, title: str, content: str):
         if self.has_completed_section(title):
@@ -49,21 +50,38 @@ class Tutor:
         self.run_quiz_for_section(title, content)
 
     # -------------------------
-    # Quiz logic (LLM-powered)
+    # Quiz logic
     # -------------------------
 
     def run_quiz_for_section(self, section_title: str, section_content: str):
         quiz = self.llm.generate_quiz(section_title, section_content)
 
-        score, total = self.quiz_engine(quiz)
+        score, total, results = self.quiz_engine(quiz)
 
-        self.progress_manager.update_section_progress(
-            section_title=section_title,
-            quiz_score=score,
-            quiz_total=total
-        )
+        print("\n--- Quiz Results ---")
+        for r in results:
+            if r["is_correct"]:
+                print(f"✔ {r['question']}")
+            else:
+                print(f"✘ {r['question']}")
+                print(f"  Correct answer: {r['correct_answer']}")
 
-        print(f"Progress saved for '{section_title}'.")
+        print(f"\nScore: {score} / {total}")
+
+        pass_ratio = score / total if total > 0 else 0
+
+        if pass_ratio >= self.MIN_PASS_RATIO:
+            self.progress_manager.update_section_progress(
+                section_title=section_title,
+                quiz_score=score,
+                quiz_total=total
+            )
+            print(f"Progress saved for '{section_title}'.")
+        else:
+            print(
+                f"Section '{section_title}' not completed. "
+                f"Please review and try again."
+            )
 
     # -------------------------
     # Progress reporting
