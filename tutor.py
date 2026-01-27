@@ -33,13 +33,13 @@ class Tutor:
     # -------------------------
 
     def explain_section(self, title: str, content: str):
-        prompt = (
+        explanation = self.llm.generate(
             f"Explain the following topic clearly and simply:\n\n"
             f"Title: {title}\n"
             f"Content: {content}"
         )
-        explanation = self.llm.generate(prompt)
         print(explanation)
+        return explanation
 
     def resume_or_explain_section(self, title: str, content: str):
         if self.has_completed_section(title):
@@ -60,28 +60,33 @@ class Tutor:
 
         print("\n--- Quiz Results ---")
         for r in results:
-            if r["is_correct"]:
-                print(f"✔ {r['question']}")
-            else:
-                print(f"✘ {r['question']}")
+            mark = "✔" if r["is_correct"] else "✘"
+            print(f"{mark} {r['question']}")
+            if not r["is_correct"]:
                 print(f"  Correct answer: {r['correct_answer']}")
 
-        print(f"\nScore: {score} / {total}")
+        if score < total:
+            print("\n--- Let's review what you missed ---")
 
-        pass_ratio = score / total if total > 0 else 0
+            for r in results:
+                if not r["is_correct"]:
+                    explanation = self.llm.explain_mistake(
+                        r["question"],
+                        r["correct_answer"]
+                    )
+                    print("\n" + explanation)
 
-        if pass_ratio >= self.MIN_PASS_RATIO:
-            self.progress_manager.update_section_progress(
-                section_title=section_title,
-                quiz_score=score,
-                quiz_total=total
-            )
-            print(f"Progress saved for '{section_title}'.")
-        else:
-            print(
-                f"Section '{section_title}' not completed. "
-                f"Please review and try again."
-            )
+            print("\nSection not completed. Please try again later.")
+            return  # ❌ Do NOT mark progress yet
+
+        # ✅ Mastery achieved
+        self.progress_manager.update_section_progress(
+            section_title=section_title,
+            quiz_score=score,
+            quiz_total=total
+        )
+
+        print(f"\nProgress saved for '{section_title}'.")
 
     # -------------------------
     # Progress reporting
