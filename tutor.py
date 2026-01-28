@@ -1,5 +1,6 @@
 # tutor.py
 from progress_manager import ProgressManager
+from quiz_store import QuizStore
 
 
 class Tutor:
@@ -17,6 +18,7 @@ class Tutor:
         self.llm = llm
         self.quiz_engine = quiz_engine
         self.progress_manager = ProgressManager(user_id=user_id)
+        self.quiz_store = QuizStore(user_id=user_id)
 
     # -------------------------
     # Session resumption
@@ -56,10 +58,10 @@ class Tutor:
     def run_quiz_for_section(self, section_title: str, section_content: str):
         quiz = self.llm.generate_quiz(section_title, section_content)
 
-        score, total, results = self.quiz_engine(quiz)
+        score, total, user_answers = self.quiz_engine(quiz)
 
         print("\n--- Quiz Results ---")
-        for r in results:
+        for r in user_answers:
             mark = "✔" if r["is_correct"] else "✘"
             print(f"{mark} {r['question']}")
             if not r["is_correct"]:
@@ -68,16 +70,27 @@ class Tutor:
         if score < total:
             print("\n--- Let's review what you missed ---")
 
-            for r in results:
+            for r in user_answers:
                 if not r["is_correct"]:
-                    explanation = self.llm.explain_mistake(
-                        r["question"],
-                        r["correct_answer"]
-                    )
-                    print("\n" + explanation)
+                    try:
+                        explanation = self.llm.explain_mistake(
+                            r["question"],
+                            r["correct_answer"]
+                        )
+                        print("\n" + explanation)
+                    except Exception:
+                        print("Review unavailable (LLM offline). Please revisit the section content.")
 
             print("\nSection not completed. Please try again later.")
             return  # ❌ Do NOT mark progress yet
+
+        self.quiz_store.save_quiz_attempt(
+            section_title=section_title,
+            quiz=quiz,
+            score=score,
+            total=total,
+            user_answers=user_answers
+        )
 
         # ✅ Mastery achieved
         self.progress_manager.update_section_progress(
