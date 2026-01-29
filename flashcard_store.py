@@ -60,3 +60,46 @@ class FlashcardStore:
         Retrieve all flashcards grouped by section.
         """
         return self.data["sections"]
+
+    # -------------------------
+    # Step 3: Access & Management Helpers
+    # -------------------------
+
+    def list_sections(self) -> list:
+        """
+        Return a list of section names that have flashcards.
+        """
+        return list(self.data["sections"].keys())
+
+    def has_section(self, section: str) -> bool:
+        """
+        Check if a section has any flashcards.
+        """
+        return section in self.data["sections"] and len(self.data["sections"][section]) > 0
+
+    def count_flashcards(self, section: str | None = None) -> int:
+        """
+        Count flashcards.
+        - If section is provided, count only that section
+        - Otherwise, count all flashcards
+        """
+        if section:
+            return len(self.data["sections"].get(section, []))
+
+        return sum(len(cards) for cards in self.data["sections"].values())
+
+    def clear_section(self, section: str):
+        """
+        Delete all flashcards for a specific section.
+        """
+        if section in self.data["sections"]:
+            del self.data["sections"][section]
+            self._save()
+
+    def clear_all(self):
+        """
+        Delete all flashcards for all sections.
+        """
+        self.data = {"sections": {}}
+        self._save()
+
