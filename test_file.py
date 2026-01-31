@@ -130,7 +130,9 @@
 from llm import OpenAIClient
 from tutor import Tutor
 from quiz_engine import run_quiz
+from quiz_store import QuizStore
 from flashcard_review import FlashcardReview
+from quiz_review import QuizReview
 
 sections = [
     {
@@ -158,6 +160,7 @@ if __name__ == "__main__":
     )
 
     flashcard_review = FlashcardReview(user_id=user_id)
+    quiz_review = QuizReview(user_id=user_id)
 
     print("=== RESUMING SESSION ===")
     print("Completed sections:", tutor.get_completed_sections())
@@ -174,6 +177,27 @@ if __name__ == "__main__":
 
     print("\n=== FINAL PROGRESS ===")
     print(tutor.get_progress_summary())
+
+    print("\n=== QUIZ REVIEW ===")
+
+    sections = quiz_review.list_sections()
+    sections_needing_review = []
+
+    for section in sections:
+        if QuizStore.get_incorrect_questions(section):
+            sections_needing_review.append(section)
+
+    if not sections_needing_review:
+        print("No quiz mistakes to review 🎉")
+    else:
+        for section in sections_needing_review:
+            quiz_review.review_section(section)
+
+    # print("\n=== RANDOM QUIZ RECALL ===")
+    #
+    # for section in sections_with_quizzes:
+    #     quiz_review.random_question_review(section, limit=2)
+
 
     # Flashcard review (consistent with current FlashcardReview class)
     print("\n=== FLASHCARD REVIEW ===")
