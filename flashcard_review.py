@@ -1,30 +1,26 @@
-# flashcard_review.py
 from flashcard_store import FlashcardStore
-from datetime import datetime
+import datetime
 
 
 class FlashcardReview:
     """
     Handles reviewing flashcards outside the AI conversation.
+    Adds due-card status for revision.
     """
 
     def __init__(self, user_id="default"):
         self.store = FlashcardStore(user_id=user_id)
 
+    # -------------------------
+    # Single section review
+    # -------------------------
+
     def review_section(self, section_title: str, limit: int = None):
         """
         Returns flashcards for a section, optionally limited.
+        Marks due status but still shows all cards.
         """
-        raw_flashcards = self.store.get_flashcards_for_section(section_title)
-
-        # Deduplicate by question text (non-destructive)
-        seen = set()
-        flashcards = []
-        for card in raw_flashcards:
-            key = card["front"].strip().lower()
-            if key not in seen:
-                seen.add(key)
-                flashcards.append(card)
+        flashcards = self.store.get_flashcards_for_section(section_title)
 
         if not flashcards:
             print(f"No flashcards available for section '{section_title}'.")
@@ -34,27 +30,36 @@ class FlashcardReview:
             flashcards = flashcards[:limit]
 
         for idx, card in enumerate(flashcards, start=1):
-            print(f"\nFlashcard {idx}/{len(flashcards)}")
+            # Determine due status
+            last_reviewed = card.get("last_reviewed")
+            if last_reviewed:
+                last = datetime.datetime.fromisoformat(last_reviewed)
+                days_since = (datetime.datetime.utcnow() - last).days
+                due_label = " (Due)" if days_since >= 1 else ""
+            else:
+                due_label = " (Due)"
+
+            print(f"\nFlashcard {idx}/{len(flashcards)}{due_label}")
             print(f"Q: {card['front']}")
             input("Press Enter to reveal the answer...")
             print(f"A: {card['back']}")
 
-            print("\nHow well did you recall this?")
-            print("1 = Again | 2 = Good | 3 = Easy")
-            choice = input("Your choice: ").strip()
+            # Update last reviewed timestamp
+            card["last_reviewed"] = datetime.datetime.utcnow().isoformat()
 
-            if choice in {"1", "2", "3"}:
-                self.store.update_review(
-                    section_title,
-                    idx - 1,
-                    int(choice)
-                )
+        # Save updated timestamps
+        self.store._save()
 
         return flashcards
+
+    # -------------------------
+    # Review across all sections
+    # -------------------------
 
     def review_all(self, limit_per_section: int = None):
         """
         Review flashcards across all sections.
+        Shows due status for each card.
         """
         all_flashcards = self.store.get_all_flashcards()
 
@@ -67,9 +72,3 @@ class FlashcardReview:
             self.review_section(section, limit=limit_per_section)
 
         return all_flashcards
-
-    def is_due(card: dict) -> bool:
-        if "next_review" not in card:
-            return True
-        return datetime.utcnow() >= datetime.fromisoformat(card["next_review"])
-
