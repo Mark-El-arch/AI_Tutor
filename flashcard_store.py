@@ -37,11 +37,20 @@ class FlashcardStore:
     def add_flashcard(self, section: str, front: str, back: str):
         """
         Add a flashcard to a section.
+        Prevent duplicate questions within the same section.
         """
         if section not in self.data["sections"]:
             self.data["sections"][section] = []
 
-        self.data["sections"][section].append({
+        cards = self.data["sections"][section]
+
+        # Deduplicate by question text
+        normalized_front = front.strip().lower()
+        for card in cards:
+            if card["front"].strip().lower() == normalized_front:
+                return  # duplicate → do nothing
+
+        cards.append({
             "front": front,
             "back": back,
             "created_at": datetime.utcnow().isoformat()
@@ -102,4 +111,47 @@ class FlashcardStore:
         """
         self.data = {"sections": {}}
         self._save()
+
+    # -------------------------
+    # v0.13 Maintenance Utility
+    # -------------------------
+
+    def deduplicate(self, dry_run: bool = True) -> dict:
+        """
+        Remove duplicate flashcards per section (by front text).
+
+        - Keeps the earliest card (by created_at)
+        - dry_run=True shows what would change without saving
+        """
+
+        report = {}
+        changed = False
+
+        for section, cards in self.data["sections"].items():
+            seen = {}
+            unique_cards = []
+
+            for card in cards:
+                key = card["front"].strip().lower()
+
+                if key not in seen:
+                    seen[key] = card
+                    unique_cards.append(card)
+                else:
+                    changed = True
+
+            if len(unique_cards) != len(cards):
+                report[section] = {
+                    "before": len(cards),
+                    "after": len(unique_cards)
+                }
+
+                if not dry_run:
+                    self.data["sections"][section] = unique_cards
+
+        if changed and not dry_run:
+            self._save()
+
+        return report
+
 
