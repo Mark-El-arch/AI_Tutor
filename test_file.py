@@ -201,5 +201,5 @@ if __name__ == "__main__":
 
     # Flashcard review (consistent with current FlashcardReview class)
     print("\n=== FLASHCARD REVIEW ===")
-    flashcard_review.review_all(limit_per_section=None)
+    all_flashcards = flashcard_review.review_all()
 
