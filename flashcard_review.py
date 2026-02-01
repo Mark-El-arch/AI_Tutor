@@ -73,7 +73,16 @@ class FlashcardReview:
         """
         Returns flashcards for a section, optionally limited.
         """
-        flashcards = self.store.get_flashcards_for_section(section_title)
+        raw_flashcards = self.store.get_flashcards_for_section(section_title)
+
+        # Deduplicate by question text (non-destructive)
+        seen = set()
+        flashcards = []
+        for card in raw_flashcards:
+            key = card["front"].strip().lower()
+            if key not in seen:
+                seen.add(key)
+                flashcards.append(card)
 
         if not flashcards:
             print(f"No flashcards available for section '{section_title}'.")
