@@ -1,7 +1,7 @@
 # flashcard_store.py
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 class FlashcardStore:
@@ -154,4 +154,29 @@ class FlashcardStore:
 
         return report
 
+    def update_review(self, section: str, card_index: int, rating: int):
+        """
+        Update spaced repetition metadata for a flashcard.
+        rating: 1 = again, 2 = good, 3 = easy
+        """
+        card = self.data["sections"][section][card_index]
 
+        now = datetime.utcnow()
+        interval = card.get("interval", 1)
+        ease = card.get("ease", 2.5)
+
+        if rating == 1:  # Again
+            interval = 1
+            ease = max(1.3, ease - 0.2)
+        elif rating == 2:  # Good
+            interval = round(interval * ease)
+        elif rating == 3:  # Easy
+            interval = round(interval * ease * 1.3)
+            ease += 0.1
+
+        card["last_reviewed"] = now.isoformat()
+        card["interval"] = interval
+        card["ease"] = round(ease, 2)
+        card["next_review"] = (now + timedelta(days=interval)).isoformat()
+
+        self._save()
