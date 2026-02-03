@@ -1,4 +1,5 @@
 from flashcard_store import FlashcardStore
+from learning_stats import LearningStats
 import datetime
 
 
@@ -10,6 +11,7 @@ class FlashcardReview:
 
     def __init__(self, user_id="default"):
         self.store = FlashcardStore(user_id=user_id)
+        self.stats = LearningStats(user_id=user_id)
 
     # -------------------------
     # Single section review
@@ -59,6 +61,10 @@ class FlashcardReview:
                 print("Please enter 'a' for again or 'g' for good.")
 
             self.record_review(card, success=(choice == "g"))
+            self.stats.record_flashcard_result(
+                section=section_title,
+                success=(choice == "g")
+            )
 
         # Save updated timestamps
         self.store._save()
