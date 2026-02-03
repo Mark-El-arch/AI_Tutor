@@ -99,3 +99,25 @@ class FlashcardReview:
             # Reset interval on failure
             card["interval_days"] = 1
             card["last_reviewed"] = datetime.datetime.utcnow().isoformat()
+
+    def review_section_loop(self, section_title: str, limit: int = None):
+        """
+        Allows the user to repeatedly review a section until they choose to exit.
+        """
+        while True:
+            self.review_section(section_title, limit=limit)
+
+            print("\nWhat would you like to do next?")
+            print("1. Review this section again")
+            print("2. Exit review")
+
+            choice = input("Choose an option (1/2): ").strip()
+
+            if choice == "1":
+                continue
+            elif choice == "2":
+                print("Exiting review.\n")
+                break
+            else:
+                print("Invalid choice. Exiting review.\n")
+                break
