@@ -193,7 +193,10 @@ class Tutor:
     def run_quiz_for_section(self, section_title: str, section_content: str) -> dict:
         quiz = self.llm.generate_quiz(section_title, section_content)
 
-        score, total, user_answers = self.quiz_engine(quiz)
+        score, total, user_answers = self.quiz_engine(
+            quiz,
+            section = section_title,
+            user_id = self.user_id)
 
         print("\n--- Quiz Results ---")
         for r in user_answers:

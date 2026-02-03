@@ -5,6 +5,7 @@ from quiz_engine import run_quiz
 from quiz_store import QuizStore
 from flashcard_review import FlashcardReview
 from quiz_review import QuizReview
+from learning_stats import LearningStats
 
 sections = [
     {
@@ -76,3 +77,7 @@ if __name__ == "__main__":
     # Interactive loop for each section
     for section in all_flashcards.keys():
         flashcard_review.review_section_loop(section)
+
+    stats = LearningStats(user_id="default")
+    weak = stats.get_weak_sections()
+    print("Weak sections:", weak)

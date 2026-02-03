@@ -3,3 +3,4 @@ __pycache__/
 *.progress.json
 progress.json
 flashcards_test_user.json
+learning_stats

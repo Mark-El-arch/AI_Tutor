@@ -1,6 +1,6 @@
 from learning_stats import LearningStats
 
-def run_quiz(quiz: dict, user_id: str = "user_id") -> tuple[int, int, list]:
+def run_quiz(quiz: dict, *, section: str, user_id: str = "user_id") -> tuple[int, int, list]:
     score = 0
     total = len(quiz["questions"])
     user_answers = []
@@ -25,7 +25,7 @@ def run_quiz(quiz: dict, user_id: str = "user_id") -> tuple[int, int, list]:
 
         # ✅ Step 2 instrumentation
         stats.record_quiz_result(
-            section=quiz["section"],
+            section=section,
             correct=correct
         )
 
