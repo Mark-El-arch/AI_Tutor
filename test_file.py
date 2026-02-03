@@ -33,12 +33,11 @@ if __name__ == "__main__":
 
     flashcard_review = FlashcardReview(user_id=user_id)
     quiz_review = QuizReview(user_id=user_id)
-    quiz_store = QuizStore(user_id=user_id)
 
     print("=== RESUMING SESSION ===")
     print("Completed sections:", tutor.get_completed_sections())
 
-    # Loop through sections for content
+    # Loop through sections
     for section in sections:
         print("\n" + "=" * 40)
         print(f"SECTION: {section['title']}")
@@ -51,39 +50,29 @@ if __name__ == "__main__":
     print("\n=== FINAL PROGRESS ===")
     print(tutor.get_progress_summary())
 
-    # --- Quiz Review ---
+    # -------------------------
+    # Quiz review (Step 7 prep)
+    # -------------------------
     print("\n=== QUIZ REVIEW ===")
+    sections_with_mistakes = []
     all_sections = quiz_review.list_sections()
-    sections_needing_review = []
-
     for section in all_sections:
-        if quiz_store.get_incorrect_questions(section):
-            sections_needing_review.append(section)
+        if QuizStore.get_incorrect_questions(section):
+            sections_with_mistakes.append(section)
 
-    if not sections_needing_review:
+    if not sections_with_mistakes:
         print("No quiz mistakes to review 🎉")
     else:
-        for section in sections_needing_review:
+        for section in sections_with_mistakes:
+            print(f"\nReviewing quiz mistakes for section '{section}':")
             quiz_review.review_section(section)
 
-    # --- Flashcard Review ---
+    # -------------------------
+    # Flashcard review (Step 5–8)
+    # -------------------------
     print("\n=== FLASHCARD REVIEW ===")
-    sections_with_flashcards = flashcard_review.store.list_sections()
+    all_flashcards = flashcard_review.review_all()
 
-    for section in sections_with_flashcards:
-        print(f"\n--- Section: {section} ---")
-        while True:
-            print("\nWhat would you like to do with this section?")
-            print("1. Review this section interactively (Step 5)")
-            print("2. Skip section")
-
-            choice = input("Choose an option (1/2): ").strip()
-
-            if choice == "1":
-                flashcard_review.review_section_loop(section)
-                break  # exit back to main loop after review
-            elif choice == "2":
-                print(f"Skipping {section}.")
-                break
-            else:
-                print("Invalid choice. Please select 1 or 2.")
+    # Interactive loop for each section
+    for section in all_flashcards.keys():
+        flashcard_review.review_section_loop(section)
