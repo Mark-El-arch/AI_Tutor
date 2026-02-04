@@ -125,6 +125,8 @@ from progress_manager import ProgressManager
 from quiz_store import QuizStore
 from flashcard_store import FlashcardStore
 from flashcard_engine import FlashcardEngine
+from flashcard_review import FlashcardReview
+from learning_stats import LearningStats
 
 
 class Tutor:
@@ -147,6 +149,9 @@ class Tutor:
         self.quiz_store = QuizStore(user_id=user_id)
         self.flashcard_store = FlashcardStore(user_id=user_id)
         self.flashcard_engine = FlashcardEngine()
+
+        self.stats = LearningStats(user_id=user_id)
+        self.flashcard_review = FlashcardReview(user_id=user_id)
 
     # -------------------------
     # Session helpers
@@ -191,7 +196,16 @@ class Tutor:
     # -------------------------
 
     def run_quiz_for_section(self, section_title: str, section_content: str) -> dict:
-        quiz = self.llm.generate_quiz(section_title, section_content)
+        # quiz = self.llm.generate_quiz(section_title, section_content)
+        config = self.get_quiz_config(section_title)
+
+        quiz = self.llm.generate_quiz(
+            section_title,
+            section_content,
+            num_questions=config["num_questions"]
+        )
+
+        self.MIN_PASS_RATIO = config["pass_ratio"]
 
         score, total, user_answers = self.quiz_engine(
             quiz,
@@ -273,3 +287,100 @@ class Tutor:
 
     def get_progress_summary(self):
         return self.progress_manager.get_overall_progress()
+
+    # -------------------------
+    # STEP 4 — Weak section report
+    # -------------------------
+
+    def report_weak_sections(self):
+        weak_sections = self.stats.get_weak_sections()
+
+        print("\n=== PERFORMANCE ANALYSIS ===")
+
+        if not weak_sections:
+            print("Great work! No weak sections detected 🎉")
+            return
+
+        print("Based on your quiz and flashcard performance, you should review:")
+        for section in weak_sections:
+            print(f" - {section}")
+
+        while True:
+            choice = input("\nWould you like to review these sections now? (y/n): ").strip().lower()
+            if choice == "y":
+                for section in weak_sections:
+                    print(f"\n--- Reviewing weak section: {section} ---")
+                    self.flashcard_review.review_section_loop(section)
+                break
+            elif choice == "n":
+                print("Okay. You can revisit them later.")
+                break
+            else:
+                print("Please enter 'y' or 'n'.")
+
+    # -------------------------
+    # STEP 5 — Adaptive routing
+    # -------------------------
+
+    def get_next_sections(self, all_sections: list[str]) -> list[str]:
+        """
+        Returns sections ordered by learning priority:
+        1. Weak sections (not yet completed)
+        2. Remaining uncompleted sections
+        """
+
+        completed = set(self.get_completed_sections())
+        weak_sections = set(self.stats.get_weak_sections())
+
+        # Remove completed sections
+        weak_sections = [s for s in weak_sections if s not in completed]
+
+        remaining = [
+            s for s in all_sections
+            if s not in completed and s not in weak_sections
+        ]
+
+        ordered = weak_sections + remaining
+
+        return ordered
+
+    # -------------------------
+    # STEP 6 — Adaptive quiz difficulty
+    # -------------------------
+
+    def get_quiz_config(self, section_title: str) -> dict:
+        stats = self.stats.get_section_stats(section_title)
+
+        attempts = stats.get("quiz_attempts", 0)
+        correct = stats.get("quiz_correct", 0)
+
+        accuracy = (correct / attempts) if attempts > 0 else 1.0
+
+        if accuracy < 0.5:
+            return {"num_questions": 5, "pass_ratio": 0.8}
+        elif accuracy < 0.7:
+            return {"num_questions": 4, "pass_ratio": 0.75}
+        else:
+            return {"num_questions": 3, "pass_ratio": 0.7}
+
+    def session_summary(self):
+        progress = self.progress_manager.get_overall_progress()
+        weak_sections = self.learning_stats.get_weak_sections()
+
+        print("\n=== SESSION SUMMARY ===")
+        print(f"Total sections: {progress['total_sections']}")
+        print(f"Completed sections: {progress['completed_sections']}")
+        print(f"Completion: {progress['completion_percentage']}%")
+
+        if weak_sections:
+            print("\nNeeds reinforcement:")
+            for section in weak_sections:
+                print(f" - {section}")
+        else:
+            print("\nAll sections are currently strong. Well done!")
+
+        print("\nNext step recommendation:")
+        if weak_sections:
+            print(f"→ Review flashcards for: {weak_sections[0]}")
+        else:
+            print("→ Move on to the next topic.")
