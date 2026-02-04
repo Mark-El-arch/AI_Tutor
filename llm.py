@@ -42,7 +42,7 @@ class OpenAIClient:
     # Quiz generation (v0.5)
     # -------------------------
 
-    def generate_quiz(self, section_title: str, section_content: str) -> dict:
+    def generate_quiz(self, section_title: str, section_content: str, num_questions: int = 3) -> dict:
         try:
             prompt = f"""
     You are an AI tutor generating a quiz.
