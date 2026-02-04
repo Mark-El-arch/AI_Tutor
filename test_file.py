@@ -39,14 +39,22 @@ if __name__ == "__main__":
     print("Completed sections:", tutor.get_completed_sections())
 
     # Loop through sections
-    for section in sections:
-        print("\n" + "=" * 40)
-        print(f"SECTION: {section['title']}")
-        print("=" * 40)
-        tutor.resume_or_explain_section(
-            section["title"],
-            section["content"]
-        )
+    # for section in sections:
+    #     print("\n" + "=" * 40)
+    #     print(f"SECTION: {section['title']}")
+    #     print("=" * 40)
+    #     tutor.resume_or_explain_section(
+    #         section["title"],
+    #         section["content"]
+    #     )
+
+    ordered_titles = tutor.get_next_sections(
+        [s["title"] for s in sections]
+    )
+
+    for title in ordered_titles:
+        section = next(s for s in sections if s["title"] == title)
+        tutor.resume_or_explain_section(section["title"], section["content"])
 
     print("\n=== FINAL PROGRESS ===")
     print(tutor.get_progress_summary())
@@ -81,3 +89,5 @@ if __name__ == "__main__":
     stats = LearningStats(user_id="default")
     weak = stats.get_weak_sections()
     print("Weak sections:", weak)
+
+    tutor.report_weak_sections()
