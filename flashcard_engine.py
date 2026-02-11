@@ -1,11 +1,12 @@
 # flashcard_engine.py
 import re
+from datetime import datetime, timedelta
 
 
 class FlashcardEngine:
     """
     Generates flashcards from section content.
-    Can be rule-based or LLM-backed later.
+    Supports SM-2 Lite adaptive scheduling for review.
     """
 
     def __init__(self, llm=None):
@@ -18,16 +19,24 @@ class FlashcardEngine:
     def generate_flashcards(self, section_title: str, section_content: str) -> list:
         """
         Returns a list of flashcards:
-        [{ "front": "...", "back": "..." }]
+        [{ "front": "...", "back": "...", "repetition": 0, "interval": 1, "next_review": date }]
         """
-
         if self.llm:
             try:
-                return self._generate_with_llm(section_title, section_content)
+                flashcards = self._generate_with_llm(section_title, section_content)
             except Exception:
-                pass  # fallback silently
+                flashcards = self._generate_rule_based(section_title, section_content)
+        else:
+            flashcards = self._generate_rule_based(section_title, section_content)
 
-        return self._generate_rule_based(section_title, section_content)
+        # Initialize SM-2 Lite fields
+        today = datetime.today().date()
+        for card in flashcards:
+            card.setdefault("repetition", 0)
+            card.setdefault("interval", 1)  # in days
+            card.setdefault("next_review", str(today))
+
+        return flashcards
 
     # -------------------------
     # Rule-based fallback
@@ -41,14 +50,6 @@ class FlashcardEngine:
 
         # Clean content
         text = re.sub(r"\n+", " ", content)
-
-        # Basic patterns
-        patterns = [
-            (rf"What is {section_title}\??", f"{section_title} is"),
-            ("In short", ""),
-            ("The main idea", ""),
-        ]
-
         sentences = [s.strip() for s in re.split(r"\. ", text) if len(s) > 40]
 
         if sentences:
@@ -73,7 +74,6 @@ class FlashcardEngine:
         """
         Uses LLM to generate flashcards (JSON-only).
         """
-
         prompt = f"""
 Generate 3 concise flashcards for revision.
 
@@ -85,9 +85,7 @@ Rules:
 - STRICT JSON only
 
 FORMAT:
-[
-  {{ "front": "...", "back": "..." }}
-]
+[{{ "front": "...", "back": "..." }}]
 
 SECTION TITLE:
 {section_title}
@@ -95,7 +93,6 @@ SECTION TITLE:
 SECTION CONTENT:
 {section_content}
 """
-
         response = self.llm.client.chat.completions.create(
             model=self.llm.model,
             messages=[
@@ -107,7 +104,6 @@ SECTION CONTENT:
 
         import json
         output = response.choices[0].message.content.strip()
-
         flashcards = json.loads(output)
 
         if not isinstance(flashcards, list):
@@ -115,4 +111,31 @@ SECTION CONTENT:
 
         return flashcards
 
-    
+    # -------------------------
+    # SM-2 Lite adaptive review
+    # -------------------------
+
+    @staticmethod
+    def review_card(card: dict, response: str):
+        """
+        Update flashcard scheduling using SM-2 Lite.
+
+        response: 'g' (good) or 'a' (again)
+        """
+        today = datetime.today().date()
+
+        if response == "a":  # Again
+            card["repetition"] = 0
+            card["interval"] = 1
+        elif response == "g":  # Good
+            card["repetition"] += 1
+            if card["repetition"] == 1:
+                card["interval"] = 1
+            elif card["repetition"] == 2:
+                card["interval"] = 6
+            else:
+                card["interval"] *= 2
+
+        # Update next review date
+        card["next_review"] = str(today + timedelta(days=card["interval"]))
+

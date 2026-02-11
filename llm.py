@@ -39,36 +39,74 @@ class OpenAIClient:
             )
 
     # -------------------------
-    # Quiz generation (v0.5)
+    # Quiz generation (v0.17)
     # -------------------------
 
-    def generate_quiz(self, section_title: str, section_content: str, num_questions: int = 3) -> dict:
+    def generate_quiz(
+        self,
+        section_title: str,
+        section_content: str,
+        difficulty: str = "normal",
+        num_questions: int = 3
+    ) -> dict:
+        """
+        Generate a quiz for a section with optional difficulty.
+        Returns a dict:
+        {
+            "questions": [
+                {"question": "...", "correct_answer": "..."}
+            ]
+        }
+        """
+
+        # Difficulty guidelines
+        difficulty_guidelines = {
+            "easy": (
+                "Use simple, direct questions. "
+                "Focus on definitions and basic recall. "
+                "Avoid tricky wording or close distractors."
+            ),
+            "normal": (
+                "Use standard conceptual questions. "
+                "Test understanding, not memorization. "
+                "Include reasonable distractors."
+            ),
+            "hard": (
+                "Use challenging questions. "
+                "Test edge cases, misconceptions, and deeper reasoning. "
+                "Use subtle distractors and application-based questions."
+            )
+        }
+
+        difficulty_instruction = difficulty_guidelines.get(
+            difficulty, difficulty_guidelines["normal"]
+        )
+
+        prompt = f"""
+You are an AI tutor generating a quiz.
+
+Section Title: {section_title}
+
+Section Content:
+{section_content}
+
+Difficulty Level: {difficulty.upper()}
+Guidelines: {difficulty_instruction}
+
+Rules:
+- Generate {num_questions} clear, independent questions
+- Each question must have exactly one correct answer
+- Return STRICT JSON in this format only:
+{{
+  "questions": [
+    {{"question": "...", "correct_answer": "..."}}
+  ]
+}}
+Do NOT include explanations, markdown, or extra text.
+"""
+
         try:
-            prompt = f"""
-    You are an AI tutor generating a quiz.
-    
-    Create 2–3 clear, beginner-friendly questions
-    based ONLY on the following content.
-    
-    Return STRICT JSON in the exact format below.
-    Do NOT include explanations, markdown, or extra text.
-    
-    FORMAT:
-    {{
-      "questions": [
-        {{
-          "question": "...",
-          "correct_answer": "..."
-        }}
-      ]
-    }}
-    
-    SECTION TITLE:
-    {section_title}
-    
-    SECTION CONTENT:
-    {section_content}
-    """
+            print(f"[LLM] Generating {difficulty} quiz for '{section_title}'")
 
             response = self.client.chat.completions.create(
                 model=self.model,
@@ -84,9 +122,7 @@ class OpenAIClient:
             try:
                 quiz = json.loads(raw_output)
             except json.JSONDecodeError:
-                raise ValueError(
-                    f"LLM returned invalid JSON for quiz:\n{raw_output}"
-                )
+                raise ValueError(f"LLM returned invalid JSON for quiz:\n{raw_output}")
 
             if "questions" not in quiz or not isinstance(quiz["questions"], list):
                 raise ValueError("Quiz format invalid: missing 'questions' list")
@@ -94,6 +130,7 @@ class OpenAIClient:
             return quiz
 
         except RateLimitError:
+            # fallback quiz
             return {
                 "questions": [
                     {
@@ -103,18 +140,22 @@ class OpenAIClient:
                 ]
             }
 
+    # -------------------------
+    # Mistake explanation
+    # -------------------------
+
     def explain_mistake(self, question: str, correct_answer: str) -> str:
         prompt = f"""
-    A learner answered a question incorrectly.
+A learner answered a question incorrectly.
 
-    QUESTION:
-    {question}
+QUESTION:
+{question}
 
-    CORRECT ANSWER:
-    {correct_answer}
+CORRECT ANSWER:
+{correct_answer}
 
-    Explain the concept clearly and simply so the learner understands.
-    """
+Explain the concept clearly and simply so the learner understands.
+"""
         response = self.client.chat.completions.create(
             model=self.model,
             messages=[
@@ -125,4 +166,3 @@ class OpenAIClient:
         )
 
         return response.choices[0].message.content
-
