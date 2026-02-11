@@ -104,3 +104,22 @@ class LearningStats:
                 weak_sections.append(section)
 
         return weak_sections
+
+    def get_quiz_accuracy(self, section: str) -> float:
+        """
+        Returns quiz accuracy for a section as a float between 0.0 and 1.0.
+        If no quiz attempts exist, returns 1.0 (neutral / not weak).
+        """
+        section_data = self.stats.get(section)
+
+        if not section_data:
+            return 1.0
+
+        attempts = section_data.get("quiz_attempts", 0)
+        correct = section_data.get("quiz_correct", 0)
+
+        if attempts == 0:
+            return 1.0
+
+        return correct / attempts
+
