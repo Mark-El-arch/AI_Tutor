@@ -2,6 +2,7 @@
 import json
 import os
 from datetime import datetime
+from pathlib import Path
 from typing import Dict
 
 
@@ -11,9 +12,10 @@ class ProgressManager:
     to persistent storage (JSON file).
     """
 
-    def __init__(self, file_path: str = "progress.json", user_id: str = "default"):
-        self.file_path = file_path
+    def __init__(self, file_path: str | None = None, user_id: str = "default"):
         self.user_id = user_id
+        self.file_path = file_path or str(Path("data/progress") / f"{user_id}.json")
+        Path(self.file_path).parent.mkdir(parents=True, exist_ok=True)
         self.progress = self._load_progress()
 
     # -------------------------
@@ -27,10 +29,9 @@ class ProgressManager:
                 with open(self.file_path, "r", encoding="utf-8") as f:
                     return json.load(f)
             except json.JSONDecodeError:
-                # Corrupted file fallback
                 return self._empty_progress()
-        else:
-            return self._empty_progress()
+
+        return self._empty_progress()
 
     def _empty_progress(self) -> Dict:
         """Initial empty progress structure."""
@@ -52,6 +53,12 @@ class ProgressManager:
         """Check if a section has been completed."""
         section = self.progress["sections"].get(section_title)
         return bool(section and section.get("completed", False))
+
+    def mark_section_completed(self, section_title: str) -> None:
+        section = self.progress["sections"].setdefault(section_title, {})
+        section["completed"] = True
+        section["last_attempt"] = datetime.utcnow().isoformat()
+        self.save_progress()
 
     def update_section_progress(
         self,
