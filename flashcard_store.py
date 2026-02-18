@@ -1,7 +1,7 @@
 # flashcard_store.py
 import json
-import os
 from datetime import datetime, timedelta
+from pathlib import Path
 
 
 class FlashcardStore:
@@ -12,45 +12,44 @@ class FlashcardStore:
 
     def __init__(self, user_id: str = "default"):
         self.user_id = user_id
-        self.file_path = f"flashcards_{user_id}.json"
+        base_dir = Path("data/flashcards")
+        base_dir.mkdir(parents=True, exist_ok=True)
+        self.file_path = base_dir / f"{user_id}.json"
         self._load()
 
-    # -------------------------
-    # Internal helpers
-    # -------------------------
-
     def _load(self):
-        if os.path.exists(self.file_path):
+        if self.file_path.exists():
             with open(self.file_path, "r", encoding="utf-8") as f:
                 self.data = json.load(f)
         else:
-            self.data = {"sections": {}}
+            self.data = {"sections": {}, "next_id": 1}
+
+        self.data.setdefault("sections", {})
+        self.data.setdefault("next_id", 1)
 
     def _save(self):
         with open(self.file_path, "w", encoding="utf-8") as f:
             json.dump(self.data, f, indent=2)
 
-    # -------------------------
-    # Public API
-    # -------------------------
+    def _next_card_id(self) -> int:
+        card_id = self.data["next_id"]
+        self.data["next_id"] += 1
+        return card_id
 
     def add_flashcard(self, section: str, front: str, back: str):
-        """
-        Add a flashcard to a section.
-        Prevent duplicate questions within the same section.
-        """
         if section not in self.data["sections"]:
             self.data["sections"][section] = []
 
         cards = self.data["sections"][section]
 
-        # Deduplicate by question text
         normalized_front = front.strip().lower()
         for card in cards:
             if card["front"].strip().lower() == normalized_front:
-                return  # duplicate → do nothing
+                return
 
         cards.append({
+            "id": self._next_card_id(),
+            "section": section,
             "front": front,
             "back": back,
             "created_at": datetime.utcnow().isoformat()
@@ -59,71 +58,56 @@ class FlashcardStore:
         self._save()
 
     def get_flashcards_for_section(self, section: str) -> list:
-        """
-        Retrieve all flashcards for a section.
-        """
         return self.data["sections"].get(section, [])
 
     def get_all_flashcards(self) -> dict:
-        """
-        Retrieve all flashcards grouped by section.
-        """
         return self.data["sections"]
 
-    # -------------------------
-    # Step 3: Access & Management Helpers
-    # -------------------------
+    def get_all_flashcards_flat(self) -> list:
+        cards = []
+        for section, section_cards in self.data["sections"].items():
+            for card in section_cards:
+                card.setdefault("section", section)
+                cards.append(card)
+        return cards
+
+    def update_flashcard(self, card_id: int, updated_fields: dict):
+        for cards in self.data["sections"].values():
+            for card in cards:
+                if card.get("id") == card_id:
+                    card.update(updated_fields)
+                    self._save()
+                    return True
+        return False
 
     def list_sections(self) -> list:
-        """
-        Return a list of section names that have flashcards.
-        """
         return list(self.data["sections"].keys())
 
+    def list_decks(self) -> list:
+        """Decks are section names."""
+        return self.list_sections()
+
+    def get_deck(self, deck_name: str) -> list:
+        return self.get_flashcards_for_section(deck_name)
+
     def has_section(self, section: str) -> bool:
-        """
-        Check if a section has any flashcards.
-        """
         return section in self.data["sections"] and len(self.data["sections"][section]) > 0
 
     def count_flashcards(self, section: str | None = None) -> int:
-        """
-        Count flashcards.
-        - If section is provided, count only that section
-        - Otherwise, count all flashcards
-        """
         if section:
             return len(self.data["sections"].get(section, []))
-
         return sum(len(cards) for cards in self.data["sections"].values())
 
     def clear_section(self, section: str):
-        """
-        Delete all flashcards for a specific section.
-        """
         if section in self.data["sections"]:
             del self.data["sections"][section]
             self._save()
 
     def clear_all(self):
-        """
-        Delete all flashcards for all sections.
-        """
-        self.data = {"sections": {}}
+        self.data = {"sections": {}, "next_id": 1}
         self._save()
 
-    # -------------------------
-    # v0.13 Maintenance Utility
-    # -------------------------
-
     def deduplicate(self, dry_run: bool = True) -> dict:
-        """
-        Remove duplicate flashcards per section (by front text).
-
-        - Keeps the earliest card (by created_at)
-        - dry_run=True shows what would change without saving
-        """
-
         report = {}
         changed = False
 
@@ -155,22 +139,18 @@ class FlashcardStore:
         return report
 
     def update_review(self, section: str, card_index: int, rating: int):
-        """
-        Update spaced repetition metadata for a flashcard.
-        rating: 1 = again, 2 = good, 3 = easy
-        """
         card = self.data["sections"][section][card_index]
 
         now = datetime.utcnow()
         interval = card.get("interval", 1)
         ease = card.get("ease", 2.5)
 
-        if rating == 1:  # Again
+        if rating == 1:
             interval = 1
             ease = max(1.3, ease - 0.2)
-        elif rating == 2:  # Good
+        elif rating == 2:
             interval = round(interval * ease)
-        elif rating == 3:  # Easy
+        elif rating == 3:
             interval = round(interval * ease * 1.3)
             ease += 0.1
 

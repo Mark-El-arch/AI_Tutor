@@ -66,7 +66,7 @@ if __name__ == "__main__":
     sections_with_mistakes = []
     all_sections = quiz_review.list_sections()
     for section in all_sections:
-        if QuizStore.get_incorrect_questions(section):
+        if quiz_review.store.get_incorrect_questions(section):
             sections_with_mistakes.append(section)
 
     if not sections_with_mistakes:
@@ -86,7 +86,7 @@ if __name__ == "__main__":
     for section in all_flashcards.keys():
         flashcard_review.review_section_loop(section)
 
-    stats = LearningStats(user_id="default")
+    stats = LearningStats(user_id=user_id)
     weak = stats.get_weak_sections()
     print("Weak sections:", weak)
 
